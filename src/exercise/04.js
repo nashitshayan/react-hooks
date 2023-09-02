@@ -11,31 +11,10 @@ import {useLocalStorageState} from '../utils'
 //   }
 //   return Array(9).fill(null)
 // })
-function Board({squares, setSquares, setHistory}) {
-  // const [squares, setSquares] = useLocalStorageState(
-  //   'squares',
-  //   Array(9).fill(null),
-  // )
-
-  const winner = calculateWinner(squares)
-  const nextValue = calculateNextValue(squares)
-  const status = calculateStatus(winner, squares, nextValue)
-
-  function selectSquare(square) {
-    if (winner || squares[square]) return
-    const nextSquares = [...squares]
-    nextSquares[square] = nextValue
-    setSquares(nextSquares)
-    setHistory(o => [...o, nextSquares])
-  }
-  function restart() {
-    setSquares(Array(9).fill(null))
-    setHistory([[]])
-  }
-
+function Board({squares, onClick}) {
   function renderSquare(i) {
     return (
-      <button className="square" onClick={() => selectSquare(i)}>
+      <button className="square" onClick={() => onClick(i)}>
         {squares[i]}
       </button>
     )
@@ -43,8 +22,6 @@ function Board({squares, setSquares, setHistory}) {
 
   return (
     <div>
-      {/* 🐨 put the status in the div below */}
-      <div className="status">{status}</div>
       <div className="board-row">
         {renderSquare(0)}
         {renderSquare(1)}
@@ -60,64 +37,57 @@ function Board({squares, setSquares, setHistory}) {
         {renderSquare(7)}
         {renderSquare(8)}
       </div>
-      <button className="restart" onClick={restart}>
-        restart
-      </button>
-    </div>
-  )
-}
-
-function History({history, setSquares, currentIndex}) {
-  function jumpToMove(index) {
-    setSquares(history[index])
-  }
-
-  return (
-    <div>
-      {history.map((board, index) => {
-        let listText
-        if (index === 0) {
-          listText = 'Go to Game Start'
-        } else {
-          listText = `Go to move#${index + 1}`
-        }
-
-        return (
-          <div
-            onClick={() => jumpToMove(index)}
-            key={index}
-            style={{color: currentIndex === index ? 'gray' : 'black'}}
-          >
-            {listText} {currentIndex === index && '(Current)'}
-          </div>
-        )
-      })}
     </div>
   )
 }
 
 function Game() {
-  const [squares, setSquares] = useLocalStorageState(
-    'squares',
-    Array(9).fill(null),
-  )
-  const [history, setHistory] = useLocalStorageState('board_history', [[]])
+  const [currentStep, setCurrentStep] = React.useState(0)
 
-  const currentIndex = history.indexOf(squares)
+  const [history, setHistory] = useLocalStorageState('board_history', [
+    Array(9).fill(null),
+  ])
+
+  const currentSquares = history[currentStep]
+
+  const winner = calculateWinner(currentSquares)
+  const nextValue = calculateNextValue(currentSquares)
+  const status = calculateStatus(winner, currentSquares, nextValue)
+
+  function selectSquare(square) {
+    if (winner || currentSquares[square]) return
+    const nextHistory = history.slice(0, currentStep + 1)
+    const nextSquares = [...currentSquares]
+    nextSquares[square] = nextValue
+    setHistory([...nextHistory, nextSquares])
+    setCurrentStep(nextHistory.length)
+  }
+  function restart() {
+    setHistory([Array(9).fill(null)])
+    setCurrentStep(0)
+  }
+  const moves = history.map((stepSquares, step) => {
+    const desc = step === 0 ? 'Go to Game Start' : `Go to step #${step}`
+    const isCurrent = step === currentStep
+    return (
+      <li key={step} disabled={isCurrent} onClick={() => setCurrentStep(step)}>
+        {desc} {isCurrent ? '(current)' : null}
+      </li>
+    )
+  })
+
   return (
     <div className="game">
       <div className="game-board">
-        <Board
-          squares={squares}
-          setSquares={setSquares}
-          setHistory={setHistory}
-        />
+        <Board onClick={selectSquare} squares={currentSquares} />
+        <button className="restart" onClick={restart}>
+          restart
+        </button>
       </div>
-      <History
-        history={history}
-        setSquares={setSquares}
-        currentIndex={currentIndex}
-      />
+      <div className="game-info">
+        <div>{status}</div>
+        <ol>{moves}</ol>
+      </div>
     </div>
   )
 }
